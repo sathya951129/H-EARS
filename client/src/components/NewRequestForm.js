@@ -1,7 +1,6 @@
 import React from 'react';
 
 function NewRequestForm({ setView }) {
-  // Lists for mapping options cleanly
   const departments = [
     "Communications", "Digital Marketing", "Engineering", "Executive Office", 
     "Finance", "Food & Beverage", "Front office", "Health Club", "Housekeeping", 
@@ -30,14 +29,12 @@ function NewRequestForm({ setView }) {
     setView('dashboard');
   };
 
-  // Shared styles for inputs to keep things clean
   const labelStyle = { display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#2d3748', fontSize: '14px' };
   const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', boxSizing: 'border-box', backgroundColor: '#fff' };
 
   return (
     <div style={{ maxWidth: '750px', margin: '40px auto', padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
       
-      {/* Navigation Header */}
       <button onClick={() => setView('dashboard')} style={{ background: 'none', border: 'none', color: '#3182ce', cursor: 'pointer', marginBottom: '24px', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center' }}>
         ← Back to Dashboard
       </button>
@@ -82,7 +79,6 @@ function NewRequestForm({ setView }) {
             <label style={labelStyle}>4. Department</label>
             <select required style={inputStyle}>
               <option value="">-- Select Department --</option>
-              <option value="Communications" , "Digital Marketing" , "Engineering" , "Executive Office" , "Finance" , "Food & Beverage" , "Front office" , "Health Club" , "Housekeeping" , "Human Resources" , "Information Technology" , "Kitchen" , "Procurement" , "Reservations" , "Sales & Marketing", "Security" , "Spa">Communications</option>
               {departments.map((dept) => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
@@ -113,7 +109,7 @@ function NewRequestForm({ setView }) {
 
         <hr style={{ border: '0', borderTop: '1px solid #e2e8f0', margin: '30px 0' }} />
 
-        {/* Section 8: System Access Matrix (3-Column Grid) */}
+        {/* Section 8: System Access Matrix */}
         <div style={{ marginBottom: '30px' }}>
           <label style={{ ...labelStyle, fontSize: '16px', marginBottom: '12px' }}>8. System Access Provisioning</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '12px', backgroundColor: '#f7fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -138,8 +134,7 @@ function NewRequestForm({ setView }) {
           <input type="file" multiple style={{ fontSize: '14px', color: '#718096' }} />
         </div>
 
-        {/* Submit Action Button */}
-        <button type="submit" style={{ width: '100%', padding: '15px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 6px rgba(49, 130, 206, 0.2)' }}>
+        <button type="submit" style={{ width: '100%', padding: '15px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px rgba(49, 130, 206, 0.2)' }}>
           Submit to 4-Tier Approval Workflow
         </button>
         
