@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "test": "node --test server.test.js"
-},
+    "test": "node --test server.test.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
