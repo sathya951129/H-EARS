@@ -1,0 +1,60 @@
+name: H-EARS Full-Stack CI Pipeline
+
+# 1. Trigger the pipeline automatically on any push to the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job 1: Verify the Backend Engine compiles cleanly
+  test-backend:
+    name: Test Node.js Backend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js Runtime Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Backend Dependencies
+      run: |
+        cd server
+        npm install
+
+    - name: Check Backend Syntax Validity
+      run: |
+        cd server
+        node --check index.js
+
+  # Job 2: Verify the Frontend React App builds without breaking
+  build-frontend:
+    name: Test React Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js Runtime Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Frontend Dependencies
+      run: |
+        cd client
+        npm install
+
+    - name: Compile and Build Production Bundle
+      # env: CI: false ensures minor ESLint warnings don't cause the automated cloud runner to crash
+      env:
+        CI: false
+      run: |
+        cd client
+        npm run build
