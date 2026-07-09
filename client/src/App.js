@@ -31,7 +31,7 @@ function App() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f7fafc', fontFamily: 'sans-serif' }}>
       
-      {/* 1. LEFT SIDEBAR PANEL */}
+      {/* LEFT SIDEBAR PANEL */}
       <div style={{ width: '260px', backgroundColor: '#1a365d', padding: '24px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
         <div>
           <h2 style={{ color: 'white', margin: '0 0 30px 10px', fontSize: '22px', letterSpacing: '0.5px' }}>H-EARS Admin</h2>
@@ -61,10 +61,10 @@ function App() {
         </div>
       </div>
 
-      {/* 2. RIGHT CONTENT WORKSPACE */}
+      {/* RIGHT CONTENT WORKSPACE */}
       <div style={{ flex: 1, padding: '40px', overflowY: 'auto', boxSizing: 'border-box' }}>
         {view === 'dashboard' && <Dashboard setView={setView} currentUser={currentUser} />}
-        {view === 'newRequest' && <NewRequestForm setView={setView} />}
+        {view === 'newRequest' && <NewRequestForm setView={setView} currentUser={currentUser} />}
         {view === 'users' && currentUser.roles.includes('admin') && <UsersManagement />}
       </div>
 

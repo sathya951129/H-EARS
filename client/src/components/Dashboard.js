@@ -6,7 +6,8 @@ function Dashboard({ setView, currentUser }) {
 
   const fetchLiveData = () => {
     const rolesParam = currentUser?.roles ? currentUser.roles.join(',') : '';
-    axios.get(`http://127.0.0.1:5001/api/requests?userRoles=${rolesParam}&userDept=${currentUser?.department || ''}`)
+    // Added userEmail parameter to the API request string below
+    axios.get(`http://127.0.0.1:5001/api/requests?userRoles=${rolesParam}&userDept=${currentUser?.department || ''}&userEmail=${currentUser?.email || ''}`)
       .then(response => setRequests(response.data))
       .catch(error => console.error("Pipeline breakdown:", error));
   };

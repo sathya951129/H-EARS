@@ -12,38 +12,72 @@ const pool = new Pool({
     user: 'postgres',
     host: '127.0.0.1',
     database: 'hears_db',
-    password: 'Wira$6924', // ⚠️ Use your real password
+    password: 'your_password_here', // ⚠️ Replace with your actual database master password
     port: 5432,
 });
 
-// Locate this block:
+// Authentication Endpoint
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
         if (result.rows.length === 0) return res.status(401).json({ error: "Invalid credentials." });
         res.json({ user: result.rows[0] });
-    } catch (err) { 
-        console.error("❌ REAL LOGIN ERROR:", err); // <-- ADD THIS LINE HERE
-        res.status(500).json({ error: "Auth fault" }); 
-    }
+    } catch (err) { res.status(500).json({ error: "Auth fault" }); }
 });
 
-// Get Access Requests with Hierarchical Role Isolation
+// ==========================================================
+// 🛡️ STRICT DATA-LEVEL SEGREGATION ENGINE
+// ==========================================================
 app.get('/api/requests', async (req, res) => {
-    const { userRoles, userDept } = req.query;
+    const { userRoles, userDept, userEmail } = req.query;
     const rolesArray = userRoles ? userRoles.split(',') : [];
 
     try {
         let queryText = 'SELECT * FROM access_requests';
+        let conditions = [];
         let queryParams = [];
 
-        // 1. Division/Dept Heads can ONLY see requests within their own specific department boundary
-        if (rolesArray.includes('Division/Dept Head') && !rolesArray.includes('admin') && !rolesArray.includes('Financial Controller') && !rolesArray.includes('General Manager')) {
-            queryText += ' WHERE department = $1';
-            queryParams.push(userDept);
+        // Condition A: If the user is an Admin/IT, bypass all filters completely
+        if (rolesArray.includes('admin')) {
+            // No conditions added -> can view everything globally
+        } else {
+            let roleConditions = [];
+
+            // 1. Requestors: Double-Lock (Must be created by them AND must match their exact department)
+            if (rolesArray.includes('Requestor')) {
+                queryParams.push(userEmail);
+                queryParams.push(userDept);
+                roleConditions.push(`(created_by = $${queryParams.length - 1} AND department = $${queryParams.length})`);
+            }
+
+            // 2. Division/Dept Heads: Only see items pending under them (Tier 1) AND approved historical items in their department (Tier >= 1)
+            if (rolesArray.includes('Division/Dept Head')) {
+                queryParams.push(userDept);
+                roleConditions.push(`(department = $${queryParams.length} AND tier >= 1)`);
+            }
+
+            // 3. Financial Controllers: Only see items pending under them (Tier 2) AND approved items (Tier >= 2)
+            if (rolesArray.includes('Financial Controller')) {
+                roleConditions.push(`tier >= 2`);
+            }
+
+            // 4. General Managers: Only see items pending under them (Tier 3) AND approved items (Tier >= 3)
+            if (rolesArray.includes('General Manager')) {
+                roleConditions.push(`tier >= 3`);
+            }
+
+            // Compile the role rules together inside a secure OR statement
+            if (roleConditions.length > 0) {
+                conditions.push(`(${roleConditions.join(' OR ')})`);
+            } else {
+                conditions.push('1=0'); // Safeguard: If user has no valid roles, return nothing
+            }
         }
-        // 2. FC, GM, and IT Admin maintain global oversight capabilities across all records
+
+        if (conditions.length > 0) {
+            queryText += ' WHERE ' + conditions.join(' AND ');
+        }
         queryText += ' ORDER BY id DESC';
 
         const result = await pool.query(queryText, queryParams);
@@ -54,30 +88,35 @@ app.get('/api/requests', async (req, res) => {
             status: row.status, tier: row.tier
         }));
         res.json(formatted);
-    } catch (err) { res.status(500).json({ error: "Fetch failure" }); }
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: "Data segregation query crash" }); 
+    }
 });
 
-// New Request Submission
+// Create Request: Records who logged in and initialized the form entry
 app.post('/api/requests/new', async (req, res) => {
     const data = req.body;
     const queryText = `
-        INSERT INTO access_requests (hotel_code, employee_id, first_name, last_name, department, designation, corporate_level, manager_name, systems_access, remarks, status, tier)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending Division/Dept Head Approval', 1) RETURNING id;
+        INSERT INTO access_requests (hotel_code, employee_id, first_name, last_name, department, designation, corporate_level, manager_name, systems_access, remarks, created_by, status, tier)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending Division/Dept Head Approval', 1) RETURNING id;
     `;
     try {
-        const result = await pool.query(queryText, [data.hotelCode, data.employeeId, data.firstName, data.lastName, data.department, data.designation, data.corporateLevel, data.managerName, data.systemsAccess, data.remarks]);
+        const result = await pool.query(queryText, [
+            data.hotelCode, data.employeeId, data.firstName, data.lastName, data.department, 
+            data.designation, data.corporateLevel, data.managerName, data.systemsAccess, data.remarks, data.createdBy
+        ]);
         res.status(201).json({ id: result.rows[0].id });
     } catch (err) { res.status(500).json({ error: "Post failure" }); }
 });
 
-// The Unified 3-Tier Workflow Automation Machine
+// Workflow Action Router (3-Tier Structure)
 app.put('/api/requests/:id/action', async (req, res) => {
     const dbId = req.params.id;
     const { action } = req.body;
     try {
         const check = await pool.query('SELECT status, tier FROM access_requests WHERE id = $1', [dbId]);
         if (check.rows.length === 0) return res.status(404).json({ error: "Record missing" });
-        
         const record = check.rows[0];
         let nextTier = record.tier;
         let nextStatus = record.status;
@@ -86,23 +125,16 @@ app.put('/api/requests/:id/action', async (req, res) => {
             nextTier = 0;
             nextStatus = 'Rejected / Access Revoked';
         } else if (action === 'approve') {
-            if (record.tier === 1) {
-                nextTier = 2;
-                nextStatus = 'Pending FC Approval';
-            } else if (record.tier === 2) {
-                nextTier = 3;
-                nextStatus = 'Pending GM Approval';
-            } else if (record.tier === 3) {
-                nextTier = 4;
-                nextStatus = 'Fully Approved & Provisioned';
-            }
+            if (record.tier === 1) { nextTier = 2; nextStatus = 'Pending FC Approval'; } 
+            else if (record.tier === 2) { nextTier = 3; nextStatus = 'Pending GM Approval'; } 
+            else if (record.tier === 3) { nextTier = 4; nextStatus = 'Fully Approved & Provisioned'; }
         }
         await pool.query('UPDATE access_requests SET tier = $1, status = $2 WHERE id = $3', [nextTier, nextStatus, dbId]);
-        res.json({ message: `Workflow step processed successfully.` });
-    } catch (err) { res.status(500).json({ error: "Workflow compute crash" }); }
+        res.json({ message: "Workflow step updated." });
+    } catch (err) { res.status(500).json({ error: "Workflow error" }); }
 });
 
-// User CRUD Management
+// User Directory Controls (CRUD)
 app.get('/api/users', async (req, res) => {
     try {
         const resu = await pool.query('SELECT * FROM users ORDER BY id DESC');
@@ -113,9 +145,9 @@ app.get('/api/users', async (req, res) => {
 app.post('/api/users/new', async (req, res) => {
     const u = req.body;
     try {
-        const r = await pool.query('INSERT INTO users (first_name, last_name, department, position, emp_id, email, password, roles) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id', [u.firstName, u.lastName, u.department, u.position, u.empId, u.email, u.password, u.roles]);
-        res.status(201).json({ message: `Account created for ${u.firstName}!` });
-    } catch (err) { res.status(500).json({ error: "Duplicate Email or Employee ID profile discovered." }); }
+        await pool.query('INSERT INTO users (first_name, last_name, department, position, emp_id, email, password, roles) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', [u.firstName, u.lastName, u.department, u.position, u.empId, u.email, u.password, u.roles]);
+        res.status(201).json({ message: "User allocated cleanly!" });
+    } catch (err) { res.status(500).json({ error: "Profile write error" }); }
 });
 
 app.delete('/api/users/:id', async (req, res) => {
@@ -125,4 +157,4 @@ app.delete('/api/users/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Delete error" }); }
 });
 
-app.listen(PORT, () => console.log(`🚀 H-EARS Multitier RBAC Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 H-EARS Segregated RBAC Engine active on port ${PORT}`));

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import axios from 'axios'; // Fixed: Using standard axios here now
+import axios from 'axios';
 
-function NewRequestForm({ setView }) {
+function NewRequestForm({ setView, currentUser }) {
   // Set up React State to capture all text and dropdown inputs
   const [formData, setFormData] = useState({
     hotelCode: '',
@@ -56,22 +56,23 @@ function NewRequestForm({ setView }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Bundle all 11 fields together
+    // Bundle all 11 fields together along with user identification tracking metrics
     const completePayload = {
       ...formData,
       systemsAccess: selectedSystems,
+      createdBy: currentUser.email, // Secure tracking injection assignment
       fileAttached: "mock_attached_file.pdf"
     };
 
-    // Send data to Node.js backend using the clean import
-    axios.post('http://localhost:5001/api/requests/new', completePayload)
+    // Send data to Node.js backend using direct numeric routing addresses
+    axios.post('http://127.0.0.1:5001/api/requests/new', completePayload)
       .then(response => {
-        alert(`Success! ${response.data.message}`);
-        setView('dashboard'); 
+        alert("Success! Request successfully sent through the 3-Tier authorization loop.");
+        setView('dashboard'); // Redirect to dashboard view port
       })
       .catch(error => {
         console.error("Transmission error:", error);
-        alert("Failed to send request to backend server.");
+        alert("Failed to pass new form request row down into backend storage pipeline.");
       });
   };
 
@@ -86,7 +87,7 @@ function NewRequestForm({ setView }) {
       </button>
       
       <h2 style={{ color: '#1a365d', marginBottom: '6px', marginTop: 0 }}>Create New Access Request</h2>
-      <p style={{ color: '#718096', marginTop: 0, marginBottom: '30px', fontSize: '14px' }}>Data will be live-streamed to Node.js API engine.</p>
+      <p style={{ color: '#718096', marginTop: 0, marginBottom: '30px', fontSize: '14px' }}>Data will be processed under secure audit trail: <strong>{currentUser.email}</strong></p>
       
       <form onSubmit={handleSubmit}>
         
@@ -182,7 +183,7 @@ function NewRequestForm({ setView }) {
         </div>
 
         <button type="submit" style={{ width: '100%', padding: '15px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
-          Submit to Live 4-Tier Node Engine
+          Submit to Live 3-Tier Security Loop
         </button>
         
       </form>
