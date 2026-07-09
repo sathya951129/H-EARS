@@ -12,18 +12,21 @@ const pool = new Pool({
     user: 'postgres',
     host: '127.0.0.1',
     database: 'hears_db',
-    password: 'your_password_here', // ⚠️ Use your real password
+    password: 'Wira$6924', // ⚠️ Use your real password
     port: 5432,
 });
 
-// Auth Login
+// Locate this block:
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
         if (result.rows.length === 0) return res.status(401).json({ error: "Invalid credentials." });
         res.json({ user: result.rows[0] });
-    } catch (err) { res.status(500).json({ error: "Auth fault" }); }
+    } catch (err) { 
+        console.error("❌ REAL LOGIN ERROR:", err); // <-- ADD THIS LINE HERE
+        res.status(500).json({ error: "Auth fault" }); 
+    }
 });
 
 // Get Access Requests with Hierarchical Role Isolation
