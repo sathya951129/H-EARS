@@ -12,7 +12,7 @@ const pool = new Pool({
     user: 'postgres',
     host: '127.0.0.1',
     database: 'hears_db',
-    password: 'your_password_here', // ⚠️ Replace with your actual database master password
+    password: 'Wira$6924', // ⚠️ Replace with your actual database master password
     port: 5432,
 });
 
@@ -26,9 +26,7 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Auth fault" }); }
 });
 
-// ==========================================================
-// 🛡️ STRICT DATA-LEVEL SEGREGATION ENGINE
-// ==========================================================
+// GET Access Requests with Hierarchical Role Isolation
 app.get('/api/requests', async (req, res) => {
     const { userRoles, userDept, userEmail } = req.query;
     const rolesArray = userRoles ? userRoles.split(',') : [];
@@ -38,40 +36,34 @@ app.get('/api/requests', async (req, res) => {
         let conditions = [];
         let queryParams = [];
 
-        // Condition A: If the user is an Admin/IT, bypass all filters completely
         if (rolesArray.includes('admin')) {
-            // No conditions added -> can view everything globally
+            // Admin/IT bypasses filters
         } else {
             let roleConditions = [];
 
-            // 1. Requestors: Double-Lock (Must be created by them AND must match their exact department)
             if (rolesArray.includes('Requestor')) {
                 queryParams.push(userEmail);
                 queryParams.push(userDept);
                 roleConditions.push(`(created_by = $${queryParams.length - 1} AND department = $${queryParams.length})`);
             }
 
-            // 2. Division/Dept Heads: Only see items pending under them (Tier 1) AND approved historical items in their department (Tier >= 1)
             if (rolesArray.includes('Division/Dept Head')) {
                 queryParams.push(userDept);
                 roleConditions.push(`(department = $${queryParams.length} AND tier >= 1)`);
             }
 
-            // 3. Financial Controllers: Only see items pending under them (Tier 2) AND approved items (Tier >= 2)
             if (rolesArray.includes('Financial Controller')) {
                 roleConditions.push(`tier >= 2`);
             }
 
-            // 4. General Managers: Only see items pending under them (Tier 3) AND approved items (Tier >= 3)
             if (rolesArray.includes('General Manager')) {
                 roleConditions.push(`tier >= 3`);
             }
 
-            // Compile the role rules together inside a secure OR statement
             if (roleConditions.length > 0) {
                 conditions.push(`(${roleConditions.join(' OR ')})`);
             } else {
-                conditions.push('1=0'); // Safeguard: If user has no valid roles, return nothing
+                conditions.push('1=0');
             }
         }
 
@@ -88,13 +80,10 @@ app.get('/api/requests', async (req, res) => {
             status: row.status, tier: row.tier
         }));
         res.json(formatted);
-    } catch (err) { 
-        console.error(err);
-        res.status(500).json({ error: "Data segregation query crash" }); 
-    }
+    } catch (err) { res.status(500).json({ error: "Data segregation fault" }); }
 });
 
-// Create Request: Records who logged in and initialized the form entry
+// Create Request
 app.post('/api/requests/new', async (req, res) => {
     const data = req.body;
     const queryText = `
@@ -110,7 +99,7 @@ app.post('/api/requests/new', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Post failure" }); }
 });
 
-// Workflow Action Router (3-Tier Structure)
+// Workflow Stepper Action Router
 app.put('/api/requests/:id/action', async (req, res) => {
     const dbId = req.params.id;
     const { action } = req.body;
@@ -134,7 +123,11 @@ app.put('/api/requests/:id/action', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Workflow error" }); }
 });
 
-// User Directory Controls (CRUD)
+// ==========================================================
+// 🛠️ IDENTITY MANAGEMENT CRUD ENDPOINTS
+// ==========================================================
+
+// 1. READ ALL USERS
 app.get('/api/users', async (req, res) => {
     try {
         const resu = await pool.query('SELECT * FROM users ORDER BY id DESC');
@@ -142,6 +135,7 @@ app.get('/api/users', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Read fault" }); }
 });
 
+// 2. CREATE NEW USER
 app.post('/api/users/new', async (req, res) => {
     const u = req.body;
     try {
@@ -150,6 +144,25 @@ app.post('/api/users/new', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Profile write error" }); }
 });
 
+// 3. UPDATE/MODIFY EXISTENT USER
+app.put('/api/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    const u = req.body;
+    const queryText = `
+        UPDATE users 
+        SET first_name = $1, last_name = $2, department = $3, position = $4, emp_id = $5, email = $6, password = $7, roles = $8
+        WHERE id = $9
+    `;
+    try {
+        await pool.query(queryText, [u.firstName, u.lastName, u.department, u.position, u.empId, u.email, u.password, u.roles, userId]);
+        res.json({ message: `Account for ${u.firstName} updated successfully!` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to update target account matrix record." });
+    }
+});
+
+// 4. DELETE USER
 app.delete('/api/users/:id', async (req, res) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
